@@ -1,0 +1,6 @@
+checkpoints
+**__pycache__**
+*.xyz
+vis_play
+vis_steps
+paper_visualization/samples
