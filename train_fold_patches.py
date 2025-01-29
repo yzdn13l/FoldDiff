@@ -187,12 +187,6 @@ def train(gpu, opt, output_dir):
     '''
     model = Model(opt, opt.loss_type)
 
-    # Note that parameter initialization is done within the DiT constructor
-    # TODO: check ema model
-    # if opt.use_ema:
-    #     ema = deepcopy(model).to(gpu)  # Create an EMA of the model for use after training
-    #     requires_grad(ema, False)
-
     if opt.distribution_type == 'multi':  # Multiple processes, single GPU per process
         def _transform_(m):
             return nn.parallel.DistributedDataParallel(
@@ -233,12 +227,6 @@ def train(gpu, opt, output_dir):
         optimizer.load_state_dict(ckpt['optimizer_state'])
         scheduler.load_state_dict(ckpt['scheduler_state'])
         start_epoch = ckpt['epoch'] + 1
-        
-    # # Prepare models for training:
-    # if opt.use_ema:
-    #     update_ema(ema, model, decay=0)  # Ensure EMA is initialized with synced weights
-    #     model.train()  # important! This enables embedding dropout for classifier-free guidance
-    #     ema.eval()  # EMA model should always be in eval mode
 
     for epoch in range(start_epoch, opt.niter):
 
@@ -266,9 +254,6 @@ def train(gpu, opt, output_dir):
                 torch.nn.utils.clip_grad_norm_(model.parameters(), opt.grad_clip)
 
             optimizer.step()
-
-                    # if opt.use_ema:
-                    #     update_ema(ema, model)
 
             if not opt.debug:
                 global_step = i + len(train_dataloader) * epoch
@@ -337,12 +322,6 @@ def train(gpu, opt, output_dir):
                     np.savetxt('%s/vis/epoch_%03d/gt_%d.xyz' % (outf_syn, epoch, idx), gt[idx].cpu().numpy(), fmt='%.6f')
                     np.savetxt('%s/vis/epoch_%03d/recon_%d.xyz' % (outf_syn, epoch, idx), recon[idx].cpu().numpy(), fmt='%.6f')
                 save_image(recon.transpose(1, 2).reshape(-1, 3, opt.patch_size, opt.patch_size), '%s/vis/epoch_%03d/recon.png' % (outf_syn, epoch), nrow=5)
-                # visualize_pointcloud_batch('%s/epoch_%03d_recon_eval.png' % (outf_syn, epoch),
-                #                            fold2_rec.transpose(1, 2), None, None,
-                #                            None)
-                # visualize_pointcloud_batch('%s/epoch_%03d_x_eval.png' % (outf_syn, epoch), x.transpose(1, 2), None,
-                #                            None,
-                #                            None)
 
             if (epoch + 1) % opt.saveIter == 0:
 
@@ -355,9 +334,6 @@ def train(gpu, opt, output_dir):
                         'optimizer_state': optimizer.state_dict(),
                         'scheduler_state': scheduler.state_dict(),
                     }
-
-                    # if opt.use_ema:
-                    #     save_dict.update({'ema': ema.state_dict()})
 
                     torch.save(save_dict, '%s/checkpoint.pth' % (output_dir))
                 
@@ -420,31 +396,24 @@ def parse_args():
     parser.add_argument('--experiment_name', type=str, default='fold_p', help='experiment name (used for checkpointing and logging)')
 
     # Data params
-    parser.add_argument('--dataroot', default='/home/warrenz/Documents/mmt/data/data/data_3D/PointFlow-Data/ShapeNetCore.v2.PC15k')
+    parser.add_argument('--dataroot', required=True, help='/path/to/ShapeNetCore.v2.PC15k')
     parser.add_argument('--category', default='chair')
-    parser.add_argument('--num_classes', type=int, default=55)
 
     parser.add_argument('--bs', type=int, default=16, help='input batch size')
     parser.add_argument('--workers', type=int, default=16, help='workers')
     parser.add_argument('--niter', type=int, default=200, help='number of epochs to train for')
 
-    parser.add_argument('--nc', type=int,  default=3)
-    parser.add_argument('--npoints', type=int, default=2048)
-    parser.add_argument('--fps_points', type=int, default=-1, help='number of points to sample from the point cloud')
+    parser.add_argument('--npoints', type=int, default=8192)
+    parser.add_argument('--fps_points', type=int, default=2048, help='number of points to sample from the point cloud')
     parser.add_argument('--n_patches', type=int, default=256, help='number of patch centers to sample')
     parser.add_argument('--patch_size', type=int, default=4, help='local patch size for 2D DiT')
     
     '''model'''
     parser.add_argument("--model_type", type=str, choices=list(folding_model_configurers.keys()), default="foldingnet_s")
-    parser.add_argument('--ebd_dim', type=int, default=512, help='embedding dim')
     parser.add_argument('--loss_type', type=str, default='cd_2', help='loss type', choices=['cd_1', 'cd_2', 'cd_1_2', 'sinkhorn', 'emd', 'emd_cd_1', 'emd_cd_2', 'emd_cd_1_2'])
 
     parser.add_argument('--lr', type=float, default=2e-4, help='learning rate for E, default=0.0002')
-    parser.add_argument('--beta1', type=float, default=0.5, help='beta1 for adam. default=0.5')
-    parser.add_argument('--decay', type=float, default=0, help='weight decay for EBM')
     parser.add_argument('--grad_clip', type=float, default=None, help='weight decay for EBM')
-    parser.add_argument('--lr_gamma', type=float, default=0.998, help='lr decay for EBM')
-
     parser.add_argument('--model', default='', help="path to model (to continue training)")
 
 
@@ -477,7 +446,6 @@ def parse_args():
     parser.add_argument('--debug', action='store_true', default=False, help = 'debug mode')
     parser.add_argument('--use_tb', action='store_true', default=False, help = 'use tensorboard')
     parser.add_argument('--use_pretrained', action='store_true', default=False, help = 'use pretrained 2d DiT weights')
-    parser.add_argument('--use_ema', action='store_true', default=False, help = 'use ema')
 
     opt = parser.parse_args()
 

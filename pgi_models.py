@@ -7,6 +7,8 @@ import itertools
 import torch
 import torch.nn as nn
 
+# adopted from https://github.com/keeganhk/Flattening-Net/blob/master/cdbs/utils.py
+
 def build_lattice(H, W):
     N = H * W # number of grids
     # generate grid points within the range of (0, 1)

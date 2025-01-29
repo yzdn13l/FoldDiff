@@ -725,7 +725,6 @@ def generate_eval(model, opt, gpu, outf_syn, evaluator):
     stats.keys() = ['1-NNA-CD', '1-NNA-EMD', 'COV-CD', 'COV-EMD', 'MMD-CD', 'MMD-EMD', 'JSD']
     '''
     stats['model_name'] = opt.model_type
-    stats['Epoch'] = opt.niter-1
     stats['n_params'] = sum(param.numel() for param in model.parameters())/1e6
     return stats
 
@@ -803,8 +802,6 @@ def test(gpu, opt, output_dir):
             map_location = {'cuda:%d' % 0: 'cuda:%d' % gpu}
             checkpoint = torch.load(opt.model, map_location=map_location)
             ema_weights = checkpoint['ema']
-            # print(checkpoint.keys())
-            # print(checkpoint['ema'].keys())
             checkpoint_dict = {k.replace('model.', 'module.'): ema_weights[k] for k in ema_weights if k.startswith('model.')}
             model.load_state_dict(checkpoint_dict)
         else:
@@ -834,7 +831,7 @@ def test(gpu, opt, output_dir):
                 df.to_csv(result_path, index=False)
             else:
                 # model_name,n_params,n_layers,n_hidden,patch_size,n_heads,Epoch,1-NNA-CD,1-NNA-EMD,COV-CD,COV-EMD,MMD-CD,MMD-EMD,JSD
-                df_stats = pd.DataFrame(stats, index=[0], columns=['model_name','n_params','Epoch','1-NNA-CD','1-NNA-EMD','COV-CD','COV-EMD','MMD-CD','MMD-EMD','JSD'])
+                df_stats = pd.DataFrame(stats, index=[0], columns=['model_name','n_params','1-NNA-CD','1-NNA-EMD','COV-CD','COV-EMD','MMD-CD','MMD-EMD','JSD'])
                 df_stats.to_csv(result_path, index=False)
             
 
@@ -1131,7 +1128,7 @@ def parse_args():
     # Data params
     parser.add_argument('--dataroot', default='../data/ShapeNetCore.v2.PC15k')
     parser.add_argument('--category', default='chair')
-    parser.add_argument('--num_classes', type=int, default=55)
+    parser.add_argument('--num_classes', type=int, default=1)
 
     parser.add_argument('--bs', type=int, default=16, help='input batch size')
     parser.add_argument('--eval_bs', type=int, default=16, help='input batch size')
@@ -1139,17 +1136,17 @@ def parse_args():
     parser.add_argument('--niter', type=int, default=1000, help='number of epochs to train for')
 
     parser.add_argument('--nc', type=int, default=3)
-    parser.add_argument('--npoints', type=int, default=2048)
-    parser.add_argument('--fps_points', type=int, default=-1)
-    parser.add_argument('--eval_npoints', type=int, default=2048)
-    parser.add_argument('--eval_fps_points', type=int, default=-1)
+    parser.add_argument('--npoints', type=int, default=8192)
+    parser.add_argument('--fps_points', type=int, default=2048)
+    parser.add_argument('--eval_npoints', type=int, default=8192)
+    parser.add_argument('--eval_fps_points', type=int, default=2048)
     parser.add_argument('--n_c', type=int, default=256)
     parser.add_argument('--n_p', type=int, default=16)
     parser.add_argument("--fold_p", type=str, default="foldingnet_p_v2_16", help='if None, use default foldingnet_p_{n_p}')
-    parser.add_argument("--fold_p_path", type=str, default='./checkpoints/fold_p/Oct25_09-18-45/epoch_199.pth')
+    parser.add_argument("--fold_p_path", type=str, required=True, help='path to the pretrained foldingnet_p model')
     
     '''model'''
-    parser.add_argument("--model_type", type=str, choices=list(DiT_models.keys()), default="DiT-mini/4")
+    parser.add_argument("--model_type", type=str, choices=list(DiT_models.keys()), default="DiT-S/4")
     parser.add_argument('--beta_start', default=0.0001)
     parser.add_argument('--beta_end', default=0.02)
     parser.add_argument('--schedule_type', default='linear')
